@@ -228,44 +228,54 @@ const saveChatHistory = async (
 };
 
 /**
- * LLM-based Intent Classifier
- * When NLP rules fall through to GENERAL, we ask the LLM to verify if this is truly 
- * a general question or if it should be routed to NLP with a specific intent.
+ * LLM-First Intent Classifier (PRIMARY ENTRY POINT)
  * 
- * Returns: { shouldUseLLM: boolean, nlpIntent: string | null }
+ * Every user message comes here FIRST. The LLM decides whether the query
+ * needs user-specific database data (routed to NLP/rule-based handlers)
+ * or is a general knowledge question (handled directly by the LLM).
+ * 
+ * Quick keyword shortcuts are kept as an optimization layer to save API calls
+ * for obvious database queries.
+ * 
+ * @param {string} message - The user's message
+ * @param {string} userType - "student" or "teacher"
+ * @returns {{ shouldUseLLM: boolean, nlpIntent: string | null }}
  */
 const classifyIntentWithLLM = async (message, userType) => {
     try {
-        const lowerMsg = message.toLowerCase();
+        // ============================================================
+        // ALL messages go directly to the LLM for classification.
+        // The LLM decides whether it's a general query or a DB query.
+        // ============================================================
 
-        // Quick keyword check BEFORE calling LLM - catch obvious user-specific queries
-        // This saves API calls and ensures accuracy for common patterns
-        if (lowerMsg.includes("my attendance") || lowerMsg.includes("my attendence") ||
-            (lowerMsg.includes("attendance") && !lowerMsg.includes("what is attendance"))) {
-            console.log(`⚡ Quick match: ATTENDANCE (keyword detected)`);
-            return { shouldUseLLM: false, nlpIntent: "ATTENDANCE" };
-        }
-        if (lowerMsg.includes("my marks") || lowerMsg.includes("my grades") ||
-            lowerMsg.includes("my score") || lowerMsg.includes("show marks")) {
-            console.log(`⚡ Quick match: MARKS (keyword detected)`);
-            return { shouldUseLLM: false, nlpIntent: "MARKS" };
-        }
-        if (lowerMsg.includes("my usn") || lowerMsg.includes("my profile") ||
-            lowerMsg.includes("my name") || lowerMsg.includes("my department")) {
-            console.log(`⚡ Quick match: BASIC_INFO (keyword detected)`);
-            return { shouldUseLLM: false, nlpIntent: "BASIC_INFO" };
-        }
-        if (lowerMsg.includes("my subject") || lowerMsg.includes("my course")) {
-            console.log(`⚡ Quick match: SUBJECTS (keyword detected)`);
-            return { shouldUseLLM: false, nlpIntent: "SUBJECTS" };
-        }
-        if (lowerMsg.includes("apply") && lowerMsg.includes("leave")) {
-            console.log(`⚡ Quick match: LEAVE_APPLICATION (keyword detected)`);
-            return { shouldUseLLM: false, nlpIntent: "LEAVE_APPLICATION" };
-        }
+        // Build role-specific classification prompt
+        const intentList = userType === "student"
+            ? `  * "BASIC_INFO" - User asking about THEIR profile, name, who they are
+  * "USN" - User asking about THEIR USN, roll number, enrollment number
+  * "COURSE" - User asking about THEIR course, program, degree
+  * "DEPARTMENT" - User asking about THEIR department, branch
+  * "SEMESTER" - User asking about THEIR current semester
+  * "SECTION" - User asking about THEIR section or division
+  * "CONTACT" - User asking about THEIR email, phone, contact details
+  * "MARKS" - User asking about THEIR overall marks, grades, results
+  * "MARKS_CIE" - User asking about THEIR CIE/internal/AAT/lab marks specifically
+  * "MARKS_SEE" - User asking about THEIR SEE/external/semester-end exam marks
+  * "MARKS_PASS_STATUS" - User asking if THEY passed or failed, pass/fail status
+  * "MARKS_SUBJECT" - User asking about marks for a SPECIFIC subject (mentions subject code)
+  * "ATTENDANCE" - User asking about THEIR attendance percentage, classes attended
+  * "SUBJECTS" - User asking what subjects THEY are enrolled in
+  * "LEAVE_APPLICATION" - User requesting to apply for leave, absent, can't come`
+            : `  * "MY_SUBJECTS" - Teacher asking what subjects THEY are teaching/handling
+  * "SUBJECT_CREDITS" - Teacher asking about credits of THEIR subjects
+  * "SEMESTER_INFO" - Teacher asking which semester THEIR subjects belong to
+  * "DEPARTMENT" - Teacher asking about THEIR department
+  * "LEAVE_APPLICATION" - Teacher requesting to apply for leave, absent, can't come`;
 
-        // If no quick match, use LLM for classification
-        const classificationPrompt = `You are an intent classifier for a college assistant chatbot.
+        const validIntentNames = userType === "student"
+            ? "LLM, BASIC_INFO, USN, COURSE, DEPARTMENT, SEMESTER, SECTION, CONTACT, MARKS, MARKS_CIE, MARKS_SEE, MARKS_PASS_STATUS, MARKS_SUBJECT, ATTENDANCE, SUBJECTS, or LEAVE_APPLICATION"
+            : "LLM, MY_SUBJECTS, SUBJECT_CREDITS, SEMESTER_INFO, DEPARTMENT, or LEAVE_APPLICATION";
+
+        const classificationPrompt = `You are an intent classifier for a college assistant chatbot. The user is a ${userType}.
 
 TASK: Classify if this message needs USER-SPECIFIC DATABASE DATA or is a GENERAL KNOWLEDGE question.
 
@@ -274,70 +284,76 @@ USER MESSAGE: "${message}"
 CLASSIFICATION RULES:
 - Answer "LLM" if the user is asking for:
   * General knowledge (algorithms, programming, concepts, definitions)
-  * Career advice, study tips, explanations
+  * Career advice, study tips, explanations of concepts
   * Coding help, debugging, technical concepts
+  * College policies, general information
+  * Greetings, casual conversation
   * Anything that does NOT require the user's personal data from database
 
-- Answer with a specific NLP intent ONLY if the user is asking about THEIR OWN DATA:
-  * "BASIC_INFO" - User asking about THEIR profile, USN, name, department, email
-  * "MARKS" - User asking about THEIR marks, grades, CIE, SEE scores  
-  * "ATTENDANCE" - User asking about THEIR attendance percentage
-  * "SUBJECTS" - User asking what subjects THEY are enrolled in
-  * "LEAVE_APPLICATION" - User requesting to apply for leave
+- Answer with a specific intent ONLY if the user is asking about THEIR OWN PERSONAL DATA:
+${intentList}
 
 EXAMPLES:
-- "Dijkstra's algorithm in C" → LLM (general programming knowledge)
-- "What is machine learning?" → LLM (general concept)
-- "How to prepare for exams?" → LLM (general advice)
-- "What is my attendance?" → ATTENDANCE (user's personal data)
-- "Show my marks" → MARKS (user's personal data)
-- "What is my USN?" → BASIC_INFO (user's personal data)
+- "Dijkstra's algorithm in C" → LLM
+- "What is machine learning?" → LLM
+- "How to prepare for exams?" → LLM
+- "Hello" → LLM
+- "Thank you" → LLM
+- "What is my attendance?" → ATTENDANCE
+- "Show my marks" → MARKS
+- "What is my USN?" → ${userType === "student" ? "USN" : "LLM"}
+- "Did I pass?" → ${userType === "student" ? "MARKS_PASS_STATUS" : "LLM"}
+- "Apply for sick leave" → LEAVE_APPLICATION
 
-RESPOND WITH EXACTLY ONE WORD: LLM, BASIC_INFO, MARKS, ATTENDANCE, SUBJECTS, or LEAVE_APPLICATION`;
+RESPOND WITH EXACTLY ONE WORD: ${validIntentNames}`;
 
         const messages = [
-            { role: "system", content: "You are an intent classifier. Respond with EXACTLY ONE WORD from the options given. No explanation." },
+            { role: "system", content: "You are an intent classifier. Respond with EXACTLY ONE WORD from the options given. No explanation, no punctuation, just the intent word." },
             { role: "user", content: classificationPrompt }
         ];
 
-        console.log(` Asking LLM to classify: "${message.substring(0, 50)}..."`);
+        console.log(`🤖 LLM-First: Classifying ${userType} message: "${message.substring(0, 60)}..."`);
 
         const result = await chatWithHuggingFace(messages, { max_tokens: 15, temperature: 0.1 });
 
         if (!result.success) {
-            console.log("LLM classification failed, defaulting to LLM handling");
-            return { shouldUseLLM: true, nlpIntent: null };
+            console.log(`⚠️ LLM classification failed (${result.error}), falling back to NLP`);
+            return { shouldUseLLM: null, nlpIntent: null, fallbackToNLP: true };
         }
 
         // Clean and parse the response
         const rawResponse = result.content.trim();
         const classification = rawResponse.toUpperCase().replace(/[^A-Z_]/g, '');
-        console.log(`LLM Classification raw: "${rawResponse}" → parsed: "${classification}"`);
+        console.log(`🤖 LLM Classification: raw="${rawResponse}" → parsed="${classification}"`);
 
-        // Check for LLM first (most common case for general queries)
+        // Check for LLM (general query)
         if (classification === "LLM" || rawResponse.toLowerCase().includes("llm")) {
-            console.log(`Routing to LLM for general response`);
+            console.log(`✅ LLM says: General query → handle with LLM`);
             return { shouldUseLLM: true, nlpIntent: null };
         }
 
-        // Check for valid NLP intents
-        const validIntents = ["BASIC_INFO", "MARKS", "ATTENDANCE", "SUBJECTS", "LEAVE_APPLICATION"];
+        // Check for valid NLP intents based on role
+        const validIntents = userType === "student"
+            ? ["BASIC_INFO", "USN", "COURSE", "DEPARTMENT", "SEMESTER", "SECTION", "CONTACT",
+               "MARKS", "MARKS_CIE", "MARKS_SEE", "MARKS_PASS_STATUS", "MARKS_SUBJECT",
+               "ATTENDANCE", "SUBJECTS", "LEAVE_APPLICATION"]
+            : ["MY_SUBJECTS", "SUBJECT_CREDITS", "SEMESTER_INFO", "DEPARTMENT", "LEAVE_APPLICATION"];
 
         for (const intent of validIntents) {
             if (classification === intent || classification.includes(intent)) {
-                console.log(`🔄 Routing to NLP intent: ${intent}`);
+                console.log(`🔄 LLM says: DB query → route to NLP intent: ${intent}`);
                 return { shouldUseLLM: false, nlpIntent: intent };
             }
         }
 
         // If we can't determine, default to LLM (safer for general queries)
-        console.log(`Unclear classification "${classification}", defaulting to LLM`);
+        console.log(`❓ Unclear classification "${classification}", defaulting to LLM`);
         return { shouldUseLLM: true, nlpIntent: null };
 
     } catch (error) {
-        console.error("LLM Intent Classification Error:", error.message);
-        // On error, default to using LLM
-        return { shouldUseLLM: true, nlpIntent: null };
+        console.error("❌ LLM Intent Classification Error:", error.message);
+        // On error, signal fallback to NLP classifier
+        return { shouldUseLLM: null, nlpIntent: null, fallbackToNLP: true };
     }
 };
 

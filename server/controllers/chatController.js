@@ -30,12 +30,25 @@ exports.teacherChat = async (req, res) => {
       });
     }
 
-    // NLP Intent Classification
-    const intent = classifyTeacherIntent(message.toLowerCase());
-    console.log(`📊 Teacher intent detected: ${intent}`);
+    // ===== LLM-FIRST INTENT CLASSIFICATION =====
+    const classification = await classifyIntentWithLLM(message, "teacher");
+    console.log(`📊 LLM-First classification result:`, JSON.stringify(classification));
 
     let response;
     let isLLMResponse = false;
+    let intent;
+
+    if (classification.fallbackToNLP) {
+      // LLM classification API failed — default to GENERAL (let LLM try to respond)
+      console.log(`⚠️ LLM classification failed, defaulting to GENERAL`);
+      intent = "GENERAL";
+    } else if (classification.shouldUseLLM) {
+      // LLM says this is a general query — let LLM respond
+      intent = "GENERAL";
+    } else {
+      // LLM identified a specific DB intent
+      intent = classification.nlpIntent;
+    }
 
     // Route based on intent
     if (intent === "GENERAL") {
@@ -265,109 +278,39 @@ exports.studentChat = async (req, res) => {
       });
     }
 
-    // NLP Intent Classification
-    let intent = classifyStudentIntent(message.toLowerCase());
-    console.log(`📊 Student intent detected (NLP): ${intent}`);
+    // ===== LLM-FIRST INTENT CLASSIFICATION =====
+    const classification = await classifyIntentWithLLM(message, "student");
+    console.log(`📊 LLM-First classification result:`, JSON.stringify(classification));
 
     let response;
     let isLLMResponse = false;
-    let finalIntent = intent; // Track the final intent used
+    let intent;
 
-    // Route based on intent
+    if (classification.fallbackToNLP) {
+      // LLM classification API failed — default to GENERAL (let LLM try to respond)
+      console.log(`⚠️ LLM classification failed, defaulting to GENERAL`);
+      intent = "GENERAL";
+    } else if (classification.shouldUseLLM) {
+      // LLM says this is a general query — let LLM respond
+      intent = "GENERAL";
+    } else {
+      // LLM identified a specific DB intent
+      intent = classification.nlpIntent;
+    }
+
+    // ===== ROUTE BASED ON INTENT =====
     if (intent === "GENERAL") {
-      // Ask LLM to verify if this should go to NLP or LLM
-      // (FAQ is now handled separately via FAQ Mode toggle)
-      console.log(`🤖 NLP returned GENERAL, asking LLM to verify intent...`);
-      const llmClassification = await classifyIntentWithLLM(message, "student");
-
-      if (!llmClassification.shouldUseLLM && llmClassification.nlpIntent) {
-        // LLM says this should go to NLP with a specific intent
-        console.log(`🔄 LLM rerouted to NLP intent: ${llmClassification.nlpIntent}`);
-        intent = llmClassification.nlpIntent;
-        finalIntent = `${llmClassification.nlpIntent}_VIA_LLM`;
-
-        // Special handling for ATTENDANCE since it needs async data fetch
-        if (intent === "ATTENDANCE") {
-          try {
-            const attendanceSummary = await getStudentAttendanceSummary(student._id.toString());
-
-            if (attendanceSummary.length === 0) {
-              response = `📅 **Your Attendance**\n\n` +
-                `No attendance records found yet.\n\n` +
-                `💡 *Your attendance will be updated once your teachers start marking it.*`;
-            } else {
-              let attendanceInfo = attendanceSummary.map((subj) => {
-                const statusIcon = subj.eligible ? "✅" : "❌";
-                const warningText = subj.percentage < MINIMUM_ATTENDANCE_PERCENT
-                  ? ` ⚠️ Below ${MINIMUM_ATTENDANCE_PERCENT}%`
-                  : "";
-                return `• **${subj.subjectCode}**: ${subj.percentage}% (${subj.present}P/${subj.absent}A/${subj.late}L) ${statusIcon}${warningText}`;
-              }).join("\n");
-
-              const overallPresent = attendanceSummary.reduce((sum, s) => sum + s.present, 0);
-              const overallTotal = attendanceSummary.reduce((sum, s) => sum + s.totalClasses, 0);
-              const overallPercentage = overallTotal > 0 ? Math.round((overallPresent / overallTotal) * 100) : 0;
-
-              const ineligibleSubjects = attendanceSummary.filter(s => !s.eligible);
-
-              response = `📅 **Your Attendance Summary**\n\n` +
-                `${attendanceInfo}\n\n` +
-                `📊 **Overall**: ${overallPercentage}% across ${attendanceSummary.length} subjects\n\n`;
-
-              if (ineligibleSubjects.length > 0) {
-                response += `🚨 **Warning**: You are below ${MINIMUM_ATTENDANCE_PERCENT}% in ${ineligibleSubjects.length} subject(s). You may not be eligible to appear for SEE exams in those subjects.\n\n`;
-              }
-
-              response += `💡 *P=Present, A=Absent, L=Late. Minimum ${MINIMUM_ATTENDANCE_PERCENT}% attendance required for SEE eligibility.*`;
-            }
-          } catch (error) {
-            console.error("Error fetching attendance:", error);
-            response = `📅 **Attendance Information**\n\nSorry, I couldn't fetch your attendance right now. Please try again later.`;
-          }
-        } else if (intent === "SUBJECTS") {
-          // Special handling for SUBJECTS to fetch credits from Subject collection
-          try {
-            const Subject = require("../models/Subject");
-
-            if (!student.marks || student.marks.length === 0) {
-              response = `📚 **Your Subjects**\n\nNo subjects have been assigned to you yet. Once your teachers enter your marks, your subjects will appear here.\n\n💡 *You are in **${student.department}** department, **Semester ${student.semester}**.*`;
-            } else {
-              // Fetch credits for each subject
-              const subjectCodes = student.marks.map(m => m.subjectCode);
-              const subjectsData = await Subject.find({ subjectCode: { $in: subjectCodes } }).lean();
-
-              const subjectsList = student.marks.map((m) => {
-                const subjectInfo = subjectsData.find(s => s.subjectCode === m.subjectCode);
-                const credits = subjectInfo?.credits || "N/A";
-                return `• **${m.subjectCode}** - ${m.subjectName || "N/A"} (${credits} credits)`;
-              }).join("\n");
-
-              const totalCredits = subjectsData.reduce((sum, s) => sum + (s.credits || 0), 0);
-
-              response = `📚 **Your Enrolled Subjects:**\n\n${subjectsList}\n\n📊 **Total**: ${student.marks.length} subject(s), ${totalCredits} credits\n\n💡 *Ask me "show my marks" to see your performance in each subject!*`;
-            }
-          } catch (error) {
-            console.error("Error fetching subjects:", error);
-            response = generateStudentResponse(intent, student, message);
-          }
-        } else {
-          // Use standard NLP response generator for other intents
-          response = generateStudentResponse(intent, student, message);
-        }
-      } else {
-        // LLM says this is truly a general question - use LLM
-        console.log(`✅ LLM confirmed: Handle with LLM`);
-        const llmResult = await generateLLMResponse(
-          message,
-          "student",
-          student,
-          decoded.id,
-          "Student"
-        );
-        response = llmResult.response;
-        isLLMResponse = llmResult.isLLM;
-        finalIntent = "GENERAL_LLM";
-      }
+      // Use LLM for general queries
+      console.log(`✅ Routing to LLM for general response`);
+      const llmResult = await generateLLMResponse(
+        message,
+        "student",
+        student,
+        decoded.id,
+        "Student"
+      );
+      response = llmResult.response;
+      isLLMResponse = llmResult.isLLM;
     } else if (intent === "LEAVE_APPLICATION") {
       // Handle leave application with email
       const leaveDetails = parseLeaveRequest(message);
@@ -468,8 +411,34 @@ exports.studentChat = async (req, res) => {
         console.error("Error fetching attendance:", error);
         response = `📅 **Attendance Information**\n\nSorry, I couldn't fetch your attendance right now. Please try again later or check with your department.`;
       }
+    } else if (intent === "SUBJECTS") {
+      // Special handling for SUBJECTS to fetch credits from Subject collection
+      try {
+        if (!student.marks || student.marks.length === 0) {
+          response = `📚 **Your Subjects**\n\nNo subjects have been assigned to you yet. Once your teachers enter your marks, your subjects will appear here.\n\n💡 *You are in **${student.department}** department, **Semester ${student.semester}**.*`;
+        } else {
+          // Fetch credits for each subject
+          const subjectCodes = student.marks.map(m => m.subjectCode);
+          const subjectsData = await Subject.find({ subjectCode: { $in: subjectCodes } }).lean();
+
+          const subjectsList = student.marks.map((m) => {
+            const subjectInfo = subjectsData.find(s => s.subjectCode === m.subjectCode);
+            const credits = subjectInfo?.credits || "N/A";
+            return `• **${m.subjectCode}** - ${m.subjectName || "N/A"} (${credits} credits)`;
+          }).join("\n");
+
+          const totalCredits = subjectsData.reduce((sum, s) => sum + (s.credits || 0), 0);
+
+          response = `📚 **Your Enrolled Subjects:**\n\n${subjectsList}\n\n📊 **Total**: ${student.marks.length} subject(s), ${totalCredits} credits\n\n💡 *Ask me "show my marks" to see your performance in each subject!*`;
+        }
+      } catch (error) {
+        console.error("Error fetching subjects:", error);
+        response = generateStudentResponse(intent, student, message);
+      }
     } else {
-      // Use rule-based response for database queries
+      // Use rule-based response for all other database queries
+      // (BASIC_INFO, USN, COURSE, DEPARTMENT, SEMESTER, SECTION, CONTACT,
+      //  MARKS, MARKS_CIE, MARKS_SEE, MARKS_PASS_STATUS, MARKS_SUBJECT)
       response = generateStudentResponse(intent, student, message);
     }
 
@@ -479,14 +448,14 @@ exports.studentChat = async (req, res) => {
       "Student",
       message,
       response,
-      finalIntent || intent,
+      intent,
       isLLMResponse
     );
 
     res.json({
       success: true,
       response,
-      intent: finalIntent || intent,
+      intent,
       isLLMResponse,
       student: {
         name: student.name,
