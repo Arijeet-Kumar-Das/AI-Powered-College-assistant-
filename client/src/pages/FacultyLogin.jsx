@@ -219,21 +219,7 @@ const FacultyLogin = () => {
             </button>
           </form>
 
-          {/* Support Link */}
-          <div className="text-center mt-6">
-            <p className="text-purple-200">
-              Need access?{" "}
-              <a
-                href="#"
-                className="text-purple-300 hover:text-white font-medium transition-colors"
-              >
-                Contact IT Support
-              </a>
-            </p>
-            <p className="text-xs text-purple-400 mt-2">
-              Default password: teacher123
-            </p>
-          </div>
+
         </div>
 
         {/* Footer */}

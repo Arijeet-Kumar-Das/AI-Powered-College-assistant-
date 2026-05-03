@@ -1,7 +1,7 @@
 // src/pages/AdminLogin.js
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Shield, Eye, EyeOff, Lock, ArrowLeft, Bot, User } from "lucide-react";
+import { Shield, Eye, EyeOff, Lock, ArrowLeft, Bot, User, Zap } from "lucide-react";
 import axios from "axios";
 
 const AdminLogin = () => {
@@ -12,6 +12,7 @@ const AdminLogin = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDemoLoading, setIsDemoLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleInputChange = (e) => {
@@ -47,8 +48,30 @@ const AdminLogin = () => {
       setIsLoading(false);
       setError(
         err.response?.data?.message ||
-          "Login failed. Please check your credentials."
+        "Login failed. Please check your credentials."
       );
+    }
+  };
+
+  // ==================== DEMO LOGIN HANDLER ====================
+  const handleDemoLogin = async () => {
+    setIsDemoLoading(true);
+    setError("");
+
+    try {
+      const response = await axios.post(
+        "http://localhost:5000/api/auth/admin/demo-login"
+      );
+
+      // Store demo token and admin data
+      localStorage.setItem("adminToken", response.data.token);
+      localStorage.setItem("adminData", JSON.stringify(response.data.admin));
+
+      // Redirect to admin dashboard
+      navigate("/admin/dashboard");
+    } catch (err) {
+      setIsDemoLoading(false);
+      setError("Demo login failed. Please try again.");
     }
   };
 
@@ -82,6 +105,44 @@ const AdminLogin = () => {
             </div>
             <h2 className="text-3xl font-bold text-white mb-2">Admin Login</h2>
             <p className="text-green-200">Secure system administration</p>
+          </div>
+
+          {/* ==================== DEMO LOGIN BUTTON ==================== */}
+          <div className="mb-6">
+            <button
+              onClick={handleDemoLogin}
+              disabled={isDemoLoading}
+              id="demo-login-btn"
+              className="w-full relative overflow-hidden bg-gradient-to-r from-amber-500 to-orange-500 text-white py-4 rounded-xl font-semibold hover:from-amber-600 hover:to-orange-600 transform hover:scale-105 transition-all duration-200 shadow-xl hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {/* Animated shimmer effect */}
+              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" style={{ animation: 'shimmer 2s infinite' }}></div>
+
+              {isDemoLoading ? (
+                <div className="flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2"></div>
+                  Entering Demo Mode...
+                </div>
+              ) : (
+                <>
+                  <Zap className="w-5 h-5" />
+                  <span>Demo Login</span>
+                  <span className="ml-2 px-2 py-0.5 bg-white/20 rounded-full text-xs font-bold tracking-wide">
+                    DEMO
+                  </span>
+                </>
+              )}
+            </button>
+            <p className="text-center text-green-300/70 text-xs mt-2">
+              🎯 Recruiters & evaluators — explore the full admin panel instantly
+            </p>
+          </div>
+
+          {/* Divider */}
+          <div className="flex items-center gap-4 mb-6">
+            <div className="flex-1 h-px bg-white/20"></div>
+            <span className="text-green-300 text-sm font-medium">or sign in with credentials</span>
+            <div className="flex-1 h-px bg-white/20"></div>
           </div>
 
           {/* Error Message */}
@@ -167,18 +228,7 @@ const AdminLogin = () => {
             </button>
           </form>
 
-          {/* Support Link */}
-          <div className="text-center mt-6">
-            <p className="text-green-200">
-              System issues?{" "}
-              <a
-                href="#"
-                className="text-green-300 hover:text-white font-medium transition-colors"
-              >
-                Contact System Admin
-              </a>
-            </p>
-          </div>
+
         </div>
 
         {/* Footer */}
@@ -189,6 +239,14 @@ const AdminLogin = () => {
           </div>
         </div>
       </div>
+
+      {/* Shimmer animation keyframes */}
+      <style>{`
+        @keyframes shimmer {
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(100%); }
+        }
+      `}</style>
     </div>
   );
 };

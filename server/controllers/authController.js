@@ -186,3 +186,37 @@ exports.studentLogin = async (req, res) => {
     });
   }
 };
+
+// ==================== DEMO ADMIN LOGIN ====================
+// Issues a JWT token for demo/recruiter access without real credentials
+exports.demoAdminLogin = async (req, res) => {
+  try {
+    const token = jwt.sign(
+      {
+        id: "demo_admin_id",
+        role: "admin",
+        username: "demo_admin",
+        isDemo: true,
+      },
+      process.env.JWT_SECRET || "fallback-secret-for-testing",
+      { expiresIn: "2h" }
+    );
+
+    res.json({
+      success: true,
+      token,
+      admin: {
+        id: "demo_admin_id",
+        name: "Demo Recruiter",
+        username: "demo_admin",
+        email: "demo@bmsce.ac.in",
+      },
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Demo login failed",
+      error: err.message,
+    });
+  }
+};

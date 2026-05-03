@@ -211,14 +211,7 @@ const StudentLogin = () => {
             </button>
           </form>
 
-          {/* Register Link */}
-          <div className="text-center mt-6">
 
-            <p className="text-xs text-blue-400 mt-2">
-              Default password may be provided by your college (e.g.,
-              student123)
-            </p>
-          </div>
         </div>
 
         {/* Footer */}

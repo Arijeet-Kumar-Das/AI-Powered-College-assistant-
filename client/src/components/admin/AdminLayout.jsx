@@ -129,10 +129,13 @@ const AdminLayout = ({ children }) => {
                         </div>
                         {sidebarOpen && (
                             <div className="flex-1">
-                                <p className="text-white font-medium text-sm">
+                                <p className="text-white font-medium text-sm flex items-center gap-1.5">
                                     {adminData?.name || "Admin"}
+                                    {adminData?.username === "demo_admin" && (
+                                        <span className="px-1.5 py-0.5 bg-amber-500/30 rounded text-amber-300 text-[10px] font-bold tracking-wider">DEMO</span>
+                                    )}
                                 </p>
-                                <p className="text-blue-200 text-xs">Administrator</p>
+                                <p className="text-blue-200 text-xs">{adminData?.username === "demo_admin" ? "Demo Access" : "Administrator"}</p>
                             </div>
                         )}
                         {sidebarOpen && (
@@ -153,9 +156,14 @@ const AdminLayout = ({ children }) => {
                 <header className="bg-white shadow-sm border-b border-gray-200 px-8 py-6 flex-shrink-0">
                     <div className="flex items-center justify-between">
                         <div>
-                            <h1 className="text-2xl font-bold text-gray-800">
-                                {menuItems.find((m) => m.path === location.pathname)?.label || "Admin"}
-                            </h1>
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-2xl font-bold text-gray-800">
+                                    {menuItems.find((m) => m.path === location.pathname)?.label || "Admin"}
+                                </h1>
+                                {adminData?.username === "demo_admin" && (
+                                    <span className="px-3 py-1 bg-gradient-to-r from-amber-100 to-orange-100 text-amber-700 rounded-full text-xs font-bold tracking-wider border border-amber-200">⚡ DEMO MODE</span>
+                                )}
+                            </div>
                             <p className="text-gray-600 mt-1">
                                 Welcome back, {adminData?.name}! 👋
                             </p>
