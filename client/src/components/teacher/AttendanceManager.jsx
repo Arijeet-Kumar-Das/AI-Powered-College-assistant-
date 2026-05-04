@@ -2,7 +2,7 @@
 // Component for teachers to mark and manage student attendance
 
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import API from "../../utils/api";
 import {
     Calendar,
     Users,
@@ -54,8 +54,8 @@ const AttendanceManager = ({ subjects }) => {
     const fetchStudents = async () => {
         setLoading(true);
         try {
-            const res = await axios.get(
-                `http://localhost:5000/api/teacher/attendance/students/${selectedSubject}`,
+            const res = await API.get(
+                `/api/teacher/attendance/students/${selectedSubject}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
@@ -80,8 +80,8 @@ const AttendanceManager = ({ subjects }) => {
 
     const checkExistingAttendance = async () => {
         try {
-            const res = await axios.get(
-                `http://localhost:5000/api/teacher/attendance/${selectedSubject}/${selectedDate}`,
+            const res = await API.get(
+                `/api/teacher/attendance/${selectedSubject}/${selectedDate}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
@@ -132,8 +132,8 @@ const AttendanceManager = ({ subjects }) => {
                 status,
             }));
 
-            const res = await axios.post(
-                "http://localhost:5000/api/teacher/attendance/mark",
+            const res = await API.post(
+                "/api/teacher/attendance/mark",
                 {
                     subjectCode: selectedSubject,
                     date: selectedDate,
@@ -164,8 +164,8 @@ const AttendanceManager = ({ subjects }) => {
         setHistoryLoading(true);
 
         try {
-            const res = await axios.get(
-                `http://localhost:5000/api/teacher/attendance/history/${selectedSubject}`,
+            const res = await API.get(
+                `/api/teacher/attendance/history/${selectedSubject}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 

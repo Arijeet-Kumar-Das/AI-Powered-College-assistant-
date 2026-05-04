@@ -26,7 +26,9 @@ import {
   Loader2,
 } from "lucide-react";
 
-const API_URL = "http://localhost:5000/api/admin";
+import { BASE_URL } from "../../utils/api";
+
+const API_URL = `${BASE_URL}/api/admin`;
 
 const NoticeManager = () => {
   const navigate = useNavigate();

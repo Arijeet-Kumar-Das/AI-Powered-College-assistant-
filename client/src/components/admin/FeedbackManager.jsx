@@ -13,7 +13,7 @@ import {
     ChevronDown,
     ChevronUp
 } from "lucide-react";
-import axios from "axios";
+import API from "../../utils/api";
 
 const FeedbackManager = () => {
     const [sessions, setSessions] = useState([]);
@@ -34,7 +34,7 @@ const FeedbackManager = () => {
     const fetchSessions = async () => {
         try {
             setLoading(true);
-            const res = await axios.get("http://localhost:5000/api/admin/feedback/sessions");
+            const res = await API.get("/api/admin/feedback/sessions");
             if (res.data.success) {
                 setSessions(res.data.sessions);
             }
@@ -53,7 +53,7 @@ const FeedbackManager = () => {
     const handleCreate = async (e) => {
         e.preventDefault();
         try {
-            await axios.post("http://localhost:5000/api/admin/feedback/sessions", newSession);
+            await API.post("/api/admin/feedback/sessions", newSession);
             setShowCreateModal(false);
             setNewSession({ title: "", startDate: "", endDate: "", targetSemester: "", targetDepartment: "" });
             fetchSessions();
@@ -66,7 +66,7 @@ const FeedbackManager = () => {
     // Toggle Session Active Status
     const handleToggle = async (id) => {
         try {
-            await axios.put(`http://localhost:5000/api/admin/feedback/sessions/${id}/toggle`);
+            await API.put(`/api/admin/feedback/sessions/${id}/toggle`);
             fetchSessions(); // Refresh to reflect changes (others might auto-deactivate)
         } catch (error) {
             console.error("Error toggling session:", error);
@@ -77,7 +77,7 @@ const FeedbackManager = () => {
     const handleDelete = async (id) => {
         if (!window.confirm("Are you sure? This will delete all feedback responses for this session.")) return;
         try {
-            await axios.delete(`http://localhost:5000/api/admin/feedback/sessions/${id}`);
+            await API.delete(`/api/admin/feedback/sessions/${id}`);
             fetchSessions();
         } catch (error) {
             console.error("Error deleting session:", error);
@@ -89,7 +89,7 @@ const FeedbackManager = () => {
         try {
             setLoadingResults(true);
             setShowResultsModal(true);
-            const res = await axios.get(`http://localhost:5000/api/admin/feedback/results/${sessionId}`);
+            const res = await API.get(`/api/admin/feedback/results/${sessionId}`);
             if (res.data.success) {
                 setResults(res.data.results);
             }

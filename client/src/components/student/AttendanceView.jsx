@@ -2,7 +2,7 @@
 // Component for students to view their attendance
 
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import API from "../../utils/api";
 import {
     Calendar,
     CheckCircle,
@@ -27,8 +27,8 @@ const AttendanceView = () => {
     const fetchAttendance = async () => {
         try {
             const token = localStorage.getItem("studentToken");
-            const res = await axios.get(
-                "http://localhost:5000/api/student/attendance/my-attendance",
+            const res = await API.get(
+                "/api/student/attendance/my-attendance",
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 

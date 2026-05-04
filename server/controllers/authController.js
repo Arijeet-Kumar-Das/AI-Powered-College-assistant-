@@ -87,7 +87,7 @@ exports.teacherLogin = async (req, res) => {
     const jwt = require("jsonwebtoken");
     const token = jwt.sign(
       { id: teacher._id, role: "faculty", employeeId: teacher.employeeId },
-      process.env.JWT_SECRET || "fallback-secret-for-testing",
+      process.env.JWT_SECRET,
       { expiresIn: "6h" }
     );
 
@@ -156,7 +156,7 @@ exports.studentLogin = async (req, res) => {
         department: student.department,
         semester: student.semester,
       },
-      process.env.JWT_SECRET || "fallback-secret-for-testing",
+      process.env.JWT_SECRET,
       { expiresIn: "6h" }
     );
 
@@ -198,7 +198,7 @@ exports.demoAdminLogin = async (req, res) => {
         username: "demo_admin",
         isDemo: true,
       },
-      process.env.JWT_SECRET || "fallback-secret-for-testing",
+      process.env.JWT_SECRET,
       { expiresIn: "2h" }
     );
 

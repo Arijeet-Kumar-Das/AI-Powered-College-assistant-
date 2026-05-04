@@ -16,7 +16,7 @@ const verifyStudent = (req, res, next) => {
 
         const decoded = jwt.verify(
             token,
-            process.env.JWT_SECRET || "fallback-secret-for-testing"
+            process.env.JWT_SECRET
         );
 
         if (decoded.role !== "student") {

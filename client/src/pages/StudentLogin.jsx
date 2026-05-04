@@ -1,7 +1,7 @@
 // src/pages/StudentLogin.js
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import API from "../utils/api";
 import {
   Users,
   Eye,
@@ -40,8 +40,8 @@ const StudentLogin = () => {
     setSuccess("");
 
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/student/login",
+      const response = await API.post(
+        "/api/auth/student/login",
         {
           usn: formData.usn,
           password: formData.password,

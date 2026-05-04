@@ -4,6 +4,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { BASE_URL } from "../utils/api";
 import {
     LayoutDashboard,
     ClipboardList,
@@ -50,7 +51,7 @@ const TeacherDashboard = () => {
 
     const fetchSubjects = async (token) => {
         try {
-            const response = await fetch("http://localhost:5000/api/teacher/subjects", {
+            const response = await fetch(`${BASE_URL}/api/teacher/subjects`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await response.json();
@@ -428,7 +429,7 @@ const EmbeddedChat = ({ teacherData }) => {
 
         try {
             const token = localStorage.getItem("teacherToken");
-            const response = await fetch("http://localhost:5000/api/chat/teacher", {
+            const response = await fetch(`${BASE_URL}/api/chat/teacher`, {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${token}`,

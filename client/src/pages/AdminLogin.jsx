@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Shield, Eye, EyeOff, Lock, ArrowLeft, Bot, User, Zap } from "lucide-react";
-import axios from "axios";
+import API from "../utils/api";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -30,8 +30,8 @@ const AdminLogin = () => {
 
     try {
       // Make API call to backend
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/admin/login",
+      const response = await API.post(
+        "/api/auth/admin/login",
         {
           username: formData.username,
           password: formData.password,
@@ -59,8 +59,8 @@ const AdminLogin = () => {
     setError("");
 
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/admin/demo-login"
+      const response = await API.post(
+        "/api/auth/admin/demo-login"
       );
 
       // Store demo token and admin data

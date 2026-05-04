@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import API, { BASE_URL } from "../utils/api";
 import { motion, AnimatePresence } from "framer-motion";
 import FeedbackModal from "../components/student/FeedbackModal";
 
@@ -17,9 +17,8 @@ const StudentChat = () => {
         const token = localStorage.getItem("studentToken");
         if (!token) return;
 
-        const res = await axios.get("http://localhost:5000/api/feedback/active", {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        const res = await API.get("/api/feedback/active");
+
 
         if (res.data.success && res.data.session && res.data.teachersToRate.length > 0) {
           setFeedbackSession(res.data.session);
@@ -61,7 +60,7 @@ const StudentChat = () => {
   // Fetch notices
   const fetchNotices = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/admin/notices/students");
+      const res = await fetch(`${BASE_URL}/api/admin/notices/students`);
       const data = await res.json();
       if (data.success) {
         setNotices(data.notices);
@@ -75,7 +74,7 @@ const StudentChat = () => {
   const fetchNotes = async (token) => {
     try {
       setNotesLoading(true);
-      const res = await fetch("http://localhost:5000/api/notes", {
+      const res = await fetch(`${BASE_URL}/api/notes`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -93,7 +92,7 @@ const StudentChat = () => {
   const fetchFaqs = async () => {
     try {
       setFaqsLoading(true);
-      const res = await fetch("http://localhost:5000/api/admin/faqs/public");
+      const res = await fetch(`${BASE_URL}/api/admin/faqs/public`);
       const data = await res.json();
       if (data.success) {
         setFaqs(data.faqs);
@@ -133,7 +132,7 @@ const StudentChat = () => {
   const downloadNote = async (noteId, fileName) => {
     try {
       const token = localStorage.getItem("studentToken") || localStorage.getItem("authToken") || localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5000/api/notes/download/${noteId}`, {
+      const res = await fetch(`${BASE_URL}/api/notes/download/${noteId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.ok) {
@@ -209,8 +208,8 @@ const StudentChat = () => {
     setLoading(true);
 
     try {
-      const { data } = await axios.post(
-        "http://localhost:5000/api/chat/student",
+      const { data } = await API.post(
+        "/api/chat/student",
         { message: tempInput },
         {
           headers: {

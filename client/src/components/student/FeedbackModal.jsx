@@ -1,7 +1,7 @@
 // src/components/student/FeedbackModal.jsx
 import React, { useState } from "react";
 import { X, Star, ChevronRight, CheckCircle, MessageSquare } from "lucide-react";
-import axios from "axios";
+import API from "../../utils/api";
 import { motion, AnimatePresence } from "framer-motion";
 
 const FeedbackModal = ({ session, teachers, questions, onClose, onComplete }) => {
@@ -38,9 +38,7 @@ const FeedbackModal = ({ session, teachers, questions, onClose, onComplete }) =>
             };
 
             const token = localStorage.getItem("studentToken");
-            await axios.post("http://localhost:5000/api/feedback/submit", payload, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await API.post("/api/feedback/submit", payload);
 
             // Clear for next teacher
             setRatings({});

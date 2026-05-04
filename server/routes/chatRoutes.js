@@ -20,7 +20,7 @@ const verifyStudent = (req, res, next) => {
 
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || "fallback-secret-for-testing"
+      process.env.JWT_SECRET
     );
 
     if (decoded.role !== "student") {
@@ -45,7 +45,7 @@ const verifyTeacher = (req, res, next) => {
 
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || "fallback-secret-for-testing"
+      process.env.JWT_SECRET
     );
     if (decoded.role !== "faculty") {
       return res.status(403).json({ message: "Faculty access only" });

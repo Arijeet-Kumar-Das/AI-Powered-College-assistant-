@@ -1,7 +1,7 @@
 // src/pages/FacultyLogin.js
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import axios from "axios";
+import API from "../utils/api";
 import {
   GraduationCap,
   Eye,
@@ -41,8 +41,8 @@ const FacultyLogin = () => {
     setSuccess("");
 
     try {
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/teacher/login",
+      const response = await API.post(
+        "/api/auth/teacher/login",
         {
           employeeId: formData.employeeId,
           password: formData.password,

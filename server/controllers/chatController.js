@@ -258,7 +258,7 @@ exports.studentChat = async (req, res) => {
 
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || "fallback-secret-for-testing"
+      process.env.JWT_SECRET
     );
 
     if (decoded.role !== "student") {

@@ -1,7 +1,7 @@
 // src/pages/admin/StudentManager.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import API from "../../utils/api";
 import {
   Plus,
   Search,
@@ -91,8 +91,8 @@ const StudentManager = () => {
         params.append("semester", selectedSemester);
       if (searchTerm) params.append("search", searchTerm);
 
-      const response = await axios.get(
-        `http://localhost:5000/api/admin/students?${params}`,
+      const response = await API.get(
+        `/api/admin/students?${params}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -112,8 +112,8 @@ const StudentManager = () => {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem("adminToken");
-      const response = await axios.get(
-        "http://localhost:5000/api/admin/students/stats",
+      const response = await API.get(
+        "/api/admin/students/stats",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -136,8 +136,8 @@ const StudentManager = () => {
       const token = localStorage.getItem("adminToken");
 
       if (editMode) {
-        await axios.put(
-          `http://localhost:5000/api/admin/students/${selectedStudent._id}`,
+        await API.put(
+          `/api/admin/students/${selectedStudent._id}`,
           formData,
           {
             headers: { Authorization: `Bearer ${token}` },
@@ -145,7 +145,7 @@ const StudentManager = () => {
         );
         alert("Student updated successfully!");
       } else {
-        await axios.post("http://localhost:5000/api/admin/students", formData, {
+        await API.post("/api/admin/students", formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
         alert("Student added successfully!");
@@ -167,7 +167,7 @@ const StudentManager = () => {
 
     try {
       const token = localStorage.getItem("adminToken");
-      await axios.delete(`http://localhost:5000/api/admin/students/${id}`, {
+      await API.delete(`/api/admin/students/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       alert("Student deleted successfully!");
@@ -230,8 +230,8 @@ const StudentManager = () => {
       const formData = new FormData();
       formData.append("file", uploadFile);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/admin/students/bulk-upload",
+      const response = await API.post(
+        "/api/admin/students/bulk-upload",
         formData,
         {
           headers: {

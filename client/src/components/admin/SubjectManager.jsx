@@ -1,7 +1,7 @@
 // src/pages/admin/SubjectManager.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import API from "../../utils/api";
 import {
   Plus,
   Search,
@@ -81,8 +81,8 @@ const SubjectManager = () => {
       if (selectedType !== "all") params.append("subjectType", selectedType);
       if (searchTerm) params.append("search", searchTerm);
 
-      const response = await axios.get(
-        `http://localhost:5000/api/admin/subjects?${params}`,
+      const response = await API.get(
+        `/api/admin/subjects?${params}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -102,8 +102,8 @@ const SubjectManager = () => {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem("adminToken");
-      const response = await axios.get(
-        "http://localhost:5000/api/admin/subjects/stats",
+      const response = await API.get(
+        "/api/admin/subjects/stats",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -126,8 +126,8 @@ const SubjectManager = () => {
       const token = localStorage.getItem("adminToken");
 
       if (editMode) {
-        await axios.put(
-          `http://localhost:5000/api/admin/subjects/${selectedSubject._id}`,
+        await API.put(
+          `/api/admin/subjects/${selectedSubject._id}`,
           formData,
           {
             headers: { Authorization: `Bearer ${token}` },
@@ -135,7 +135,7 @@ const SubjectManager = () => {
         );
         alert("Subject updated successfully!");
       } else {
-        await axios.post("http://localhost:5000/api/admin/subjects", formData, {
+        await API.post("/api/admin/subjects", formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
         alert("Subject added successfully!");
@@ -157,7 +157,7 @@ const SubjectManager = () => {
 
     try {
       const token = localStorage.getItem("adminToken");
-      await axios.delete(`http://localhost:5000/api/admin/subjects/${id}`, {
+      await API.delete(`/api/admin/subjects/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       alert("Subject deleted successfully!");
@@ -210,8 +210,8 @@ const SubjectManager = () => {
       const formData = new FormData();
       formData.append("file", uploadFile);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/admin/subjects/bulk-upload",
+      const response = await API.post(
+        "/api/admin/subjects/bulk-upload",
         formData,
         {
           headers: {

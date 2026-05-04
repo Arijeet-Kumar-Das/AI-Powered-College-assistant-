@@ -8,8 +8,9 @@ const noteSchema = new mongoose.Schema(
         title: { type: String, required: true },
         description: { type: String, default: "" },
         fileName: { type: String, required: true },      // Original file name
-        filePath: { type: String, required: true },      // Server storage path
-        fileSize: { type: Number, required: true },      // Size in bytes
+        filePath: { type: String, required: true },      // Cloudinary URL
+        cloudinaryId: { type: String },                  // Cloudinary public_id for deletion
+        fileSize: { type: Number, default: 0 },          // Size in bytes
         mimeType: { type: String, default: "application/pdf" },
 
         // Subject linking

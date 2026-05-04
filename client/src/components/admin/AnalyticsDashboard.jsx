@@ -2,7 +2,7 @@
 // Comprehensive analytics dashboard with charts and live stats
 
 import React, { useState, useEffect } from "react";
-import axios from "axios";
+import API from "../../utils/api";
 import { motion } from "framer-motion";
 import {
     Users,
@@ -52,9 +52,8 @@ const AnalyticsDashboard = () => {
             const token = localStorage.getItem("adminToken");
 
             // Fetch stats
-            const statsRes = await axios.get("http://localhost:5000/api/admin/dashboard/stats", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const statsRes = await API.get("/api/admin/dashboard/stats");
+
 
             if (statsRes.data.success) {
                 setStats(statsRes.data.stats);

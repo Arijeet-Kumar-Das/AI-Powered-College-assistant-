@@ -1,16 +1,15 @@
 // controllers/notesController.js
-// Handles PDF upload, download, and management
+// Handles PDF upload to Cloudinary, download via URL, and management
 
 const Note = require("../models/Note");
 const Subject = require("../models/Subject");
 const Teacher = require("../models/Teacher");
 const Student = require("../models/Student");
-const path = require("path");
-const fs = require("fs");
+const { cloudinary } = require("../config/cloudinary");
 
 // ==================== TEACHER APIS ====================
 
-// Upload a new note (PDF)
+// Upload a new note (PDF) — file is already on Cloudinary via multer-storage-cloudinary
 exports.uploadNote = async (req, res) => {
     try {
         if (!req.file) {
@@ -21,15 +20,19 @@ exports.uploadNote = async (req, res) => {
         const teacherId = req.teacher._id;
 
         if (!title || !subjectCode) {
-            // Delete uploaded file if validation fails
-            fs.unlinkSync(req.file.path);
+            // Delete uploaded file from Cloudinary if validation fails
+            if (req.file.filename) {
+                await cloudinary.uploader.destroy(req.file.filename, { resource_type: "raw" });
+            }
             return res.status(400).json({ success: false, message: "Title and subject code are required" });
         }
 
         // Find subject details
         const subject = await Subject.findOne({ subjectCode });
         if (!subject) {
-            fs.unlinkSync(req.file.path);
+            if (req.file.filename) {
+                await cloudinary.uploader.destroy(req.file.filename, { resource_type: "raw" });
+            }
             return res.status(404).json({ success: false, message: "Subject not found" });
         }
 
@@ -40,9 +43,10 @@ exports.uploadNote = async (req, res) => {
             title,
             description: description || "",
             fileName: req.file.originalname,
-            filePath: req.file.path,
-            fileSize: req.file.size,
-            mimeType: req.file.mimetype,
+            filePath: req.file.path,           // Cloudinary URL
+            cloudinaryId: req.file.filename,   // Cloudinary public_id for deletion
+            fileSize: req.file.size || 0,
+            mimeType: req.file.mimetype || "application/pdf",
             subject: subject._id,
             subjectCode: subject.subjectCode,
             subjectName: subject.subjectName,
@@ -69,9 +73,13 @@ exports.uploadNote = async (req, res) => {
         });
     } catch (error) {
         console.error("Upload error:", error);
-        // Clean up file on error
-        if (req.file && fs.existsSync(req.file.path)) {
-            fs.unlinkSync(req.file.path);
+        // Clean up Cloudinary file on error
+        if (req.file && req.file.filename) {
+            try {
+                await cloudinary.uploader.destroy(req.file.filename, { resource_type: "raw" });
+            } catch (cleanupErr) {
+                console.error("Cloudinary cleanup error:", cleanupErr);
+            }
         }
         res.status(500).json({ success: false, message: "Error uploading note" });
     }
@@ -83,8 +91,7 @@ exports.getTeacherNotes = async (req, res) => {
         const teacherId = req.teacher._id;
 
         const notes = await Note.find({ uploadedBy: teacherId })
-            .sort({ createdAt: -1 })
-            .select("-filePath"); // Don't expose file path
+            .sort({ createdAt: -1 });
 
         res.json({
             success: true,
@@ -108,7 +115,7 @@ exports.getTeacherNotes = async (req, res) => {
     }
 };
 
-// Delete a note
+// Delete a note (removes from Cloudinary + MongoDB)
 exports.deleteNote = async (req, res) => {
     try {
         const { id } = req.params;
@@ -119,9 +126,14 @@ exports.deleteNote = async (req, res) => {
             return res.status(404).json({ success: false, message: "Note not found or unauthorized" });
         }
 
-        // Delete file from disk
-        if (fs.existsSync(note.filePath)) {
-            fs.unlinkSync(note.filePath);
+        // Delete file from Cloudinary
+        if (note.cloudinaryId) {
+            try {
+                await cloudinary.uploader.destroy(note.cloudinaryId, { resource_type: "raw" });
+            } catch (cloudErr) {
+                console.error("Cloudinary delete error:", cloudErr);
+                // Continue with DB deletion even if Cloudinary fails
+            }
         }
 
         await Note.deleteOne({ _id: id });
@@ -155,8 +167,7 @@ exports.getStudentNotes = async (req, res) => {
                 { subjectCode: { $in: studentSubjectCodes } },
             ],
         })
-            .sort({ createdAt: -1 })
-            .select("-filePath");
+            .sort({ createdAt: -1 });
 
         res.json({
             success: true,
@@ -166,6 +177,7 @@ exports.getStudentNotes = async (req, res) => {
                 description: n.description,
                 fileName: n.fileName,
                 fileSize: n.fileSize,
+                fileUrl: n.filePath, // Cloudinary URL — direct download link
                 subjectCode: n.subjectCode,
                 subjectName: n.subjectName,
                 uploadedBy: n.uploadedByName,
@@ -179,7 +191,7 @@ exports.getStudentNotes = async (req, res) => {
     }
 };
 
-// Download a note (for students)
+// Download a note (redirect to Cloudinary URL)
 exports.downloadNote = async (req, res) => {
     try {
         const { id } = req.params;
@@ -205,16 +217,11 @@ exports.downloadNote = async (req, res) => {
             return res.status(403).json({ success: false, message: "You don't have access to this note" });
         }
 
-        // Check if file exists
-        if (!fs.existsSync(note.filePath)) {
-            return res.status(404).json({ success: false, message: "File not found on server" });
-        }
-
         // Increment download count
         await Note.updateOne({ _id: id }, { $inc: { downloads: 1 } });
 
-        // Send file
-        res.download(note.filePath, note.fileName);
+        // Redirect to Cloudinary URL for download
+        res.redirect(note.filePath);
     } catch (error) {
         console.error("Download note error:", error);
         res.status(500).json({ success: false, message: "Error downloading note" });

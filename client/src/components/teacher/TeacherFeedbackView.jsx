@@ -1,7 +1,7 @@
 // src/components/teacher/TeacherFeedbackView.jsx
 import React, { useState, useEffect } from "react";
 import { Star, MessageSquare, TrendingUp, Calendar, Loader2 } from "lucide-react";
-import axios from "axios";
+import API from "../../utils/api";
 
 const TeacherFeedbackView = () => {
     const [results, setResults] = useState([]);
@@ -14,9 +14,7 @@ const TeacherFeedbackView = () => {
     const fetchFeedback = async () => {
         try {
             const token = localStorage.getItem("teacherToken");
-            const res = await axios.get("http://localhost:5000/api/teacher/feedback/my-results", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await API.get("/api/teacher/feedback/my-results");
             if (res.data.success) {
                 setResults(res.data.results);
             }

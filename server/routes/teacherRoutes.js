@@ -5,8 +5,7 @@ const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
-const path = require("path");
-const fs = require("fs");
+const { notesStorage } = require("../config/cloudinary");
 const {
     getTeacherSubjects,
     getStudentsForSubject,
@@ -28,24 +27,7 @@ const {
     getAttendanceByDate,
 } = require("../controllers/attendanceController");
 
-// Ensure uploads directory exists
-const uploadsDir = path.join(__dirname, "../uploads/notes");
-if (!fs.existsSync(uploadsDir)) {
-    fs.mkdirSync(uploadsDir, { recursive: true });
-}
-
-// Configure multer for PDF uploads
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        cb(null, uploadsDir);
-    },
-    filename: (req, file, cb) => {
-        // Create unique filename: timestamp-originalname
-        const uniqueName = `${Date.now()}-${file.originalname.replace(/\s+/g, "_")}`;
-        cb(null, uniqueName);
-    },
-});
-
+// Configure multer with Cloudinary storage for PDF uploads
 const fileFilter = (req, file, cb) => {
     // Accept only PDFs
     if (file.mimetype === "application/pdf") {
@@ -56,7 +38,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({
-    storage,
+    storage: notesStorage,
     fileFilter,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });
@@ -71,7 +53,7 @@ const verifyTeacher = (req, res, next) => {
 
         const decoded = jwt.verify(
             token,
-            process.env.JWT_SECRET || "fallback-secret-for-testing"
+            process.env.JWT_SECRET
         );
 
         if (decoded.role !== "faculty") {

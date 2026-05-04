@@ -16,6 +16,7 @@ import {
     AlertTriangle,
     XCircle,
 } from "lucide-react";
+import { BASE_URL } from "../../utils/api";
 
 const MarksManager = ({ subjects }) => {
     const [selectedSubject, setSelectedSubject] = useState(null);
@@ -39,7 +40,7 @@ const MarksManager = ({ subjects }) => {
         try {
             const token = localStorage.getItem("teacherToken");
             const response = await fetch(
-                `http://localhost:5000/api/teacher/students/${subjectCode}`,
+                `${BASE_URL}/api/teacher/students/${subjectCode}`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             const data = await response.json();
@@ -177,7 +178,7 @@ const MarksManager = ({ subjects }) => {
                 },
             }));
 
-            const response = await fetch("http://localhost:5000/api/teacher/marks/bulk", {
+            const response = await fetch(`${BASE_URL}/api/teacher/marks/bulk`, {
                 method: "POST",
                 headers: {
                     Authorization: `Bearer ${token}`,

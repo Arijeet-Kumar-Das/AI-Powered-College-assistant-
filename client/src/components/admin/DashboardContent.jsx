@@ -3,7 +3,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import API from "../../utils/api";
 import {
     Users,
     GraduationCap,
@@ -29,9 +29,8 @@ const DashboardContent = () => {
     const fetchStats = async () => {
         try {
             const token = localStorage.getItem("adminToken");
-            const res = await axios.get("http://localhost:5000/api/admin/dashboard/stats", {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            const res = await API.get("/api/admin/dashboard/stats");
+
             if (res.data.success) {
                 setStats(res.data.stats);
             }

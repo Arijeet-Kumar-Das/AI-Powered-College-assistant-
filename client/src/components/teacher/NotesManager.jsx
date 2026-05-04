@@ -12,6 +12,7 @@ import {
     CheckCircle,
     X,
 } from "lucide-react";
+import { BASE_URL } from "../../utils/api";
 
 const NotesManager = ({ subjects = [] }) => {
     const [notes, setNotes] = useState([]);
@@ -33,7 +34,7 @@ const NotesManager = ({ subjects = [] }) => {
     const fetchNotes = async () => {
         try {
             setLoading(true);
-            const res = await fetch("http://localhost:5000/api/teacher/notes", {
+            const res = await fetch(`${BASE_URL}/api/teacher/notes`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
@@ -86,7 +87,7 @@ const NotesManager = ({ subjects = [] }) => {
             uploadData.append("subjectCode", formData.subjectCode);
             uploadData.append("file", selectedFile);
 
-            const res = await fetch("http://localhost:5000/api/teacher/notes/upload", {
+            const res = await fetch(`${BASE_URL}/api/teacher/notes/upload`, {
                 method: "POST",
                 headers: { Authorization: `Bearer ${token}` },
                 body: uploadData,
@@ -115,7 +116,7 @@ const NotesManager = ({ subjects = [] }) => {
         if (!window.confirm("Are you sure you want to delete this note?")) return;
 
         try {
-            const res = await fetch(`http://localhost:5000/api/teacher/notes/${noteId}`, {
+            const res = await fetch(`${BASE_URL}/api/teacher/notes/${noteId}`, {
                 method: "DELETE",
                 headers: { Authorization: `Bearer ${token}` },
             });

@@ -1,7 +1,7 @@
 // src/pages/admin/TeacherManager.jsx
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import API from "../../utils/api";
 import {
   Plus,
   Search,
@@ -73,8 +73,8 @@ const TeacherManager = () => {
     try {
       setSubjectsLoading(true);
       const token = localStorage.getItem("adminToken");
-      const response = await axios.get(
-        `http://localhost:5000/api/admin/subjects?department=${dept}`,
+      const response = await API.get(
+        `/api/admin/subjects?department=${dept}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -99,8 +99,8 @@ const TeacherManager = () => {
         params.append("department", selectedDepartment);
       if (searchTerm) params.append("search", searchTerm);
 
-      const response = await axios.get(
-        `http://localhost:5000/api/admin/teachers?${params}`,
+      const response = await API.get(
+        `/api/admin/teachers?${params}`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -120,8 +120,8 @@ const TeacherManager = () => {
   const fetchStats = async () => {
     try {
       const token = localStorage.getItem("adminToken");
-      const response = await axios.get(
-        "http://localhost:5000/api/admin/teachers/stats",
+      const response = await API.get(
+        "/api/admin/teachers/stats",
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -153,8 +153,8 @@ const TeacherManager = () => {
       const token = localStorage.getItem("adminToken");
 
       if (editMode) {
-        await axios.put(
-          `http://localhost:5000/api/admin/teachers/${selectedTeacher._id}`,
+        await API.put(
+          `/api/admin/teachers/${selectedTeacher._id}`,
           formData,
           {
             headers: { Authorization: `Bearer ${token}` },
@@ -162,7 +162,7 @@ const TeacherManager = () => {
         );
         alert("Teacher updated successfully!");
       } else {
-        await axios.post("http://localhost:5000/api/admin/teachers", formData, {
+        await API.post("/api/admin/teachers", formData, {
           headers: { Authorization: `Bearer ${token}` },
         });
         alert("Teacher added successfully!");
@@ -184,7 +184,7 @@ const TeacherManager = () => {
 
     try {
       const token = localStorage.getItem("adminToken");
-      await axios.delete(`http://localhost:5000/api/admin/teachers/${id}`, {
+      await API.delete(`/api/admin/teachers/${id}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       alert("Teacher deleted successfully!");
@@ -281,8 +281,8 @@ const TeacherManager = () => {
       const formDataUpload = new FormData();
       formDataUpload.append("file", uploadFile);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/admin/teachers/bulk-upload",
+      const response = await API.post(
+        "/api/admin/teachers/bulk-upload",
         formDataUpload,
         {
           headers: {

@@ -1,7 +1,7 @@
 // src/pages/faculty/TeacherChat.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import API, { BASE_URL } from "../utils/api";
 import {
   Bot,
   User,
@@ -34,7 +34,7 @@ const TeacherChat = () => {
   // Fetch notices for faculty
   const fetchNotices = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/admin/notices/faculty");
+      const res = await fetch(`${BASE_URL}/api/admin/notices/faculty`);
       const data = await res.json();
       if (data.success) {
         setNotices(data.notices);
@@ -105,8 +105,8 @@ const TeacherChat = () => {
 
     try {
       const token = localStorage.getItem("teacherToken");
-      const response = await axios.post(
-        "http://localhost:5000/api/chat/teacher",
+      const response = await API.post(
+        "/api/chat/teacher",
         { message: inputMessage },
         { headers: { Authorization: `Bearer ${token}` } }
       );
