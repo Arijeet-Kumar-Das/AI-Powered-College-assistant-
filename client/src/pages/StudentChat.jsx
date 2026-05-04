@@ -131,7 +131,7 @@ const StudentChat = () => {
   // Download note
   const downloadNote = async (noteId, fileName) => {
     try {
-      const token = localStorage.getItem("studentToken") || localStorage.getItem("authToken") || localStorage.getItem("token");
+      const token = localStorage.getItem("studentToken");
       const res = await fetch(`${BASE_URL}/api/notes/download/${noteId}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
@@ -157,8 +157,7 @@ const StudentChat = () => {
   // Logout handler
   const handleLogout = () => {
     localStorage.removeItem("studentToken");
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("token");
+    localStorage.removeItem("studentData");
     navigate("/login/student");
   };
 
@@ -169,10 +168,7 @@ const StudentChat = () => {
   }, []);
 
   useEffect(() => {
-    const token =
-      localStorage.getItem("studentToken") ||
-      localStorage.getItem("authToken") ||
-      localStorage.getItem("token");
+    const token = localStorage.getItem("studentToken");
     if (token) {
       setStudentToken(token);
       fetchNotes(token);
