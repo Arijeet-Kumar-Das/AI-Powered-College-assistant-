@@ -1,58 +1,153 @@
 // services/emailService.js
-// Email service using Nodemailer for leave applications and professional emails
+// Email service with Resend (HTTP API) for production and Gmail SMTP for local dev
 
 const nodemailer = require("nodemailer");
+const axios = require("axios");
 
-// Create transporter (configure with your SMTP settings)
-const createTransporter = () => {
-    // Check for Gmail configuration
-    if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
-        return nodemailer.createTransport({
-            service: "gmail",
-            host: "smtp.gmail.com",
-            port: 587,
-            secure: false, // true for 465, false for 587
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS, // Use App Password for Gmail
+// ==================== EMAIL PROVIDERS ====================
+
+/**
+ * Send email via Resend HTTP API (works on all cloud platforms including Render)
+ * No SMTP needed — uses HTTPS POST instead
+ */
+const sendViaResend = async ({ from, to, replyTo, subject, html }) => {
+    const RESEND_API_KEY = process.env.RESEND_API_KEY;
+    if (!RESEND_API_KEY) return null; // Signal to fall back to SMTP
+
+    try {
+        const response = await axios.post(
+            "https://api.resend.com/emails",
+            {
+                from: from || "BMS College Assistant <onboarding@resend.dev>",
+                to: Array.isArray(to) ? to : [to],
+                reply_to: replyTo,
+                subject,
+                html,
             },
-            // Timeouts to prevent indefinite hanging on cloud platforms (Render, etc.)
-            connectionTimeout: 15000, // 15 seconds to establish connection
-            greetingTimeout: 15000,   // 15 seconds for SMTP greeting
-            socketTimeout: 15000,     // 15 seconds for socket inactivity
-        });
-    }
+            {
+                headers: {
+                    Authorization: `Bearer ${RESEND_API_KEY}`,
+                    "Content-Type": "application/json",
+                },
+                timeout: 15000, // 15s timeout
+            }
+        );
 
-    // Fallback: Ethereal (for testing - emails won't actually be sent)
-    console.log("No email credentials configured. Using test mode.");
-    return null;
+        return {
+            success: true,
+            messageId: response.data.id,
+            provider: "resend",
+        };
+    } catch (error) {
+        console.error("Resend API error:", error.response?.data || error.message);
+        return {
+            success: false,
+            error: error.response?.data?.message || error.message,
+            provider: "resend",
+        };
+    }
 };
 
 /**
- * Send a leave application email
+ * Send email via Gmail SMTP (works locally, may fail on cloud platforms)
  */
-const sendLeaveEmail = async (senderInfo, leaveDetails) => {
-    const transporter = createTransporter();
+const sendViaGmail = async ({ from, to, replyTo, subject, html }) => {
+    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) return null;
 
-    if (!transporter) {
+    const transporter = nodemailer.createTransport({
+        service: "gmail",
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false,
+        auth: {
+            user: process.env.EMAIL_USER,
+            pass: process.env.EMAIL_PASS,
+        },
+        connectionTimeout: 15000,
+        greetingTimeout: 15000,
+        socketTimeout: 15000,
+    });
+
+    try {
+        const emailTimeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Gmail SMTP timed out after 20 seconds")), 20000)
+        );
+
+        const sendPromise = transporter.sendMail({
+            from: from || `"BMS College Assistant" <${process.env.EMAIL_USER}>`,
+            to,
+            replyTo,
+            subject,
+            html,
+        });
+
+        const info = await Promise.race([sendPromise, emailTimeout]);
+
+        return {
+            success: true,
+            messageId: info.messageId,
+            provider: "gmail",
+        };
+    } catch (error) {
+        console.error("Gmail SMTP error:", error.message);
         return {
             success: false,
-            error: "email_not_configured",
-            message: "Email service is not configured. Please ask admin to set up EMAIL_USER and EMAIL_PASS in .env",
+            error: error.message,
+            provider: "gmail",
+        };
+    }
+};
+
+/**
+ * Send email using the best available provider
+ * Priority: Resend (HTTP API) → Gmail SMTP → Error
+ */
+const sendEmail = async ({ from, to, replyTo, subject, html }) => {
+    // Try Resend first (works on cloud platforms)
+    const resendResult = await sendViaResend({ from, to, replyTo, subject, html });
+    if (resendResult) {
+        if (resendResult.success) {
+            console.log(`Email sent via Resend: ${resendResult.messageId}`);
+            return resendResult;
+        }
+        console.log(`Resend failed: ${resendResult.error}, trying Gmail SMTP...`);
+    }
+
+    // Fall back to Gmail SMTP (works locally)
+    const gmailResult = await sendViaGmail({ from, to, replyTo, subject, html });
+    if (gmailResult) {
+        if (gmailResult.success) {
+            console.log(`Email sent via Gmail: ${gmailResult.messageId}`);
+            return gmailResult;
+        }
+        return {
+            success: false,
+            error: "send_failed",
+            message: gmailResult.error,
         };
     }
 
+    return {
+        success: false,
+        error: "email_not_configured",
+        message: "No email service configured. Set RESEND_API_KEY or EMAIL_USER/EMAIL_PASS in .env",
+    };
+};
+
+// ==================== LEAVE & PROFESSIONAL EMAILS ====================
+
+/**
+ * Build the leave application HTML email body
+ */
+const buildLeaveHtml = (senderInfo, leaveDetails) => {
     const { name, email, role, department, id } = senderInfo;
     const { reason, fromDate, toDate, leaveType } = leaveDetails;
-
-    // Use provided toEmail or fall back to admin email
-    const toEmail = leaveDetails.toEmail || process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
     const recipientName = leaveDetails.recipientName || "Admin";
 
-    const emailHtml = `
+    return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e0e0e0; border-radius: 10px;">
       <h2 style="color: #4f46e5; border-bottom: 2px solid #4f46e5; padding-bottom: 10px;">
-        📋 Leave Application
+        Leave Application
       </h2>
       
       <div style="background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #4caf50;">
@@ -83,59 +178,48 @@ const sendLeaveEmail = async (senderInfo, leaveDetails) => {
       </p>
     </div>
   `;
+};
 
-    try {
-        // Race between sending email and a 20s timeout to prevent indefinite hanging
-        const emailTimeout = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Email sending timed out after 20 seconds. Gmail SMTP may be blocked on this server.")), 20000)
-        );
+/**
+ * Send a leave application email
+ */
+const sendLeaveEmail = async (senderInfo, leaveDetails) => {
+    const { name, email, role } = senderInfo;
+    const toEmail = leaveDetails.toEmail || process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
 
-        const sendPromise = transporter.sendMail({
-            from: `"BMS College Assistant" <${process.env.EMAIL_USER}>`,
-            to: toEmail,
-            replyTo: email,
-            subject: `Leave Application - ${name} (${role.toUpperCase()})`,
-            html: emailHtml,
-        });
+    const html = buildLeaveHtml(senderInfo, leaveDetails);
 
-        const info = await Promise.race([sendPromise, emailTimeout]);
+    const result = await sendEmail({
+        from: process.env.RESEND_API_KEY
+            ? "BMS College Assistant <onboarding@resend.dev>"
+            : `"BMS College Assistant" <${process.env.EMAIL_USER}>`,
+        to: toEmail,
+        replyTo: email,
+        subject: `Leave Application - ${name} (${role.toUpperCase()})`,
+        html,
+    });
 
-        console.log("Leave email sent:", info.messageId);
-
+    if (result.success) {
         return {
             success: true,
-            messageId: info.messageId,
+            messageId: result.messageId,
             message: `Leave application sent successfully to ${toEmail}`,
         };
-    } catch (error) {
-        console.error("Email error:", error.message);
-        return {
-            success: false,
-            error: "send_failed",
-            message: error.message.includes("timed out")
-                ? "Email service timed out. The server may be blocking SMTP connections. Please try again later or contact the recipient directly."
-                : error.message,
-        };
     }
+
+    return {
+        success: false,
+        error: result.error || "send_failed",
+        message: result.message || result.error || "Failed to send email",
+    };
 };
 
 /**
  * Send a general professional email
  */
 const sendProfessionalEmail = async (senderInfo, emailDetails) => {
-    const transporter = createTransporter();
-
-    if (!transporter) {
-        return {
-            success: false,
-            error: "email_not_configured",
-            message: "Email service is not configured.",
-        };
-    }
-
     const { name, email, role, department, id } = senderInfo;
     const { subject, body, toEmail } = emailDetails;
-
     const recipient = toEmail || process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
 
     const emailHtml = `
@@ -153,39 +237,32 @@ const sendProfessionalEmail = async (senderInfo, emailDetails) => {
     </div>
   `;
 
-    try {
-        const emailTimeout = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error("Email sending timed out after 20 seconds.")), 20000)
-        );
+    const result = await sendEmail({
+        from: process.env.RESEND_API_KEY
+            ? `${name} via BMS Assistant <onboarding@resend.dev>`
+            : `"${name} via BMS Assistant" <${process.env.EMAIL_USER}>`,
+        to: recipient,
+        replyTo: email,
+        subject: subject || `Message from ${name}`,
+        html: emailHtml,
+    });
 
-        const sendPromise = transporter.sendMail({
-            from: `"${name} via BMS Assistant" <${process.env.EMAIL_USER}>`,
-            to: recipient,
-            replyTo: email,
-            subject: subject || `Message from ${name}`,
-            html: emailHtml,
-        });
-
-        const info = await Promise.race([sendPromise, emailTimeout]);
-
-        console.log("Professional email sent:", info.messageId);
-
+    if (result.success) {
         return {
             success: true,
-            messageId: info.messageId,
+            messageId: result.messageId,
             message: `Email sent successfully to ${recipient}`,
         };
-    } catch (error) {
-        console.error("Email error:", error.message);
-        return {
-            success: false,
-            error: "send_failed",
-            message: error.message.includes("timed out")
-                ? "Email service timed out. Please try again later."
-                : error.message,
-        };
     }
+
+    return {
+        success: false,
+        error: result.error || "send_failed",
+        message: result.message || result.error || "Failed to send email",
+    };
 };
+
+// ==================== PARSING HELPERS ====================
 
 /**
  * Parse leave request from message
@@ -388,4 +465,3 @@ module.exports = {
     findTeacherEmail,
     getAvailableTeachers,
 };
-
