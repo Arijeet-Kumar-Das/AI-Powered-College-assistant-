@@ -1,7 +1,7 @@
 // src/pages/FacultyLogin.js
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import API from "../utils/api";
+import API, { clearAllTokens } from "../utils/api";
 import {
   GraduationCap,
   Eye,
@@ -50,7 +50,7 @@ const FacultyLogin = () => {
       );
 
       if (response.data.success) {
-        // Store teacher token and data
+        clearAllTokens(); // Clear any stale student/admin tokens
         localStorage.setItem("teacherToken", response.data.token);
         localStorage.setItem(
           "teacherData",

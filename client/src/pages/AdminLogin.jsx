@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Shield, Eye, EyeOff, Lock, ArrowLeft, Bot, User, Zap } from "lucide-react";
-import API from "../utils/api";
+import API, { clearAllTokens } from "../utils/api";
 
 const AdminLogin = () => {
   const navigate = useNavigate();
@@ -38,7 +38,8 @@ const AdminLogin = () => {
         }
       );
 
-      // Store token in localStorage
+      // Clear stale tokens and store admin token
+      clearAllTokens();
       localStorage.setItem("adminToken", response.data.token);
       localStorage.setItem("adminData", JSON.stringify(response.data.admin));
 
@@ -63,7 +64,8 @@ const AdminLogin = () => {
         "/api/auth/admin/demo-login"
       );
 
-      // Store demo token and admin data
+      // Clear stale tokens and store demo admin token
+      clearAllTokens();
       localStorage.setItem("adminToken", response.data.token);
       localStorage.setItem("adminData", JSON.stringify(response.data.admin));
 

@@ -1,7 +1,7 @@
 // src/pages/StudentLogin.js
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import API from "../utils/api";
+import API, { clearAllTokens } from "../utils/api";
 import {
   Users,
   Eye,
@@ -49,6 +49,7 @@ const StudentLogin = () => {
       );
 
       if (response.data.success) {
+        clearAllTokens(); // Clear any stale teacher/admin tokens
         localStorage.setItem("studentToken", response.data.token);
         localStorage.setItem(
           "studentData",
