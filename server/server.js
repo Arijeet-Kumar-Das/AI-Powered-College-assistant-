@@ -1,6 +1,6 @@
 
 
-// Load environment variables FIRST
+
 require("dotenv").config();
 
 const express = require("express");
@@ -19,12 +19,12 @@ const studentAttendanceRoutes = require("./routes/studentAttendanceRoutes.js");
 
 const app = express();
 
-// CORS — restrict to your frontend domain in production
+// CORS 
 const allowedOrigins = [
-  "http://localhost:5173",                       // Vite dev server
-  "http://localhost:3000",                       // Alternate local
-  process.env.FRONTEND_URL,                      // Production frontend (set in Render env vars)
-].filter(Boolean); // Remove undefined entries
+  "http://localhost:5173",
+  "http://localhost:3000",
+  process.env.FRONTEND_URL,
+].filter(Boolean);
 
 app.use(cors({
   origin: function (origin, callback) {
@@ -60,24 +60,24 @@ app.use("/api/feedback", studentFeedbackRoutes);
 app.use("/api/student/attendance", studentAttendanceRoutes);
 
 // ==================== RENDER KEEP-ALIVE ====================
-// Pings itself every 14 minutes to prevent Render free-tier cold starts
+
 const SELF_PING_INTERVAL = 14 * 60 * 1000; // 14 minutes
 
 const startKeepAlive = () => {
   const backendUrl = process.env.RENDER_EXTERNAL_URL || process.env.BACKEND_URL;
   if (!backendUrl) {
-    console.log("⚠️  No RENDER_EXTERNAL_URL or BACKEND_URL set — keep-alive disabled (local dev)");
+    console.log("  No RENDER_EXTERNAL_URL or BACKEND_URL set — keep-alive disabled (local dev)");
     return;
   }
 
-  console.log(`🏓 Keep-alive enabled: pinging ${backendUrl} every 14 minutes`);
+  console.log(` Keep-alive enabled: pinging ${backendUrl} every 14 minutes`);
 
   setInterval(async () => {
     try {
       const res = await fetch(backendUrl);
-      console.log(`🏓 Keep-alive ping: ${res.status} at ${new Date().toISOString()}`);
+      console.log(` Keep-alive ping: ${res.status} at ${new Date().toISOString()}`);
     } catch (err) {
-      console.error("🏓 Keep-alive ping failed:", err.message);
+      console.error(" Keep-alive ping failed:", err.message);
     }
   }, SELF_PING_INTERVAL);
 };
