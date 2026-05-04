@@ -2,7 +2,6 @@
 // Cloudinary configuration for cloud file storage
 
 const cloudinary = require("cloudinary").v2;
-const { CloudinaryStorage } = require("multer-storage-cloudinary");
 
 // Configure Cloudinary with environment variables
 cloudinary.config({
@@ -11,21 +10,33 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// Multer storage engine for PDF notes uploads
-const notesStorage = new CloudinaryStorage({
-  cloudinary,
-  params: {
-    folder: "college-assistant/notes",
-    resource_type: "raw", // Required for PDFs (non-image files)
-    allowed_formats: ["pdf"],
-    // Preserve original filename in public_id
-    public_id: (req, file) => {
-      const cleanName = file.originalname
-        .replace(/\.pdf$/i, "")
-        .replace(/\s+/g, "_");
-      return `${Date.now()}-${cleanName}`;
-    },
-  },
-});
+/**
+ * Upload a buffer to Cloudinary
+ * @param {Buffer} buffer - File buffer from multer memoryStorage
+ * @param {string} originalname - Original filename
+ * @returns {Promise<object>} - Cloudinary upload result
+ */
+const uploadToCloudinary = (buffer, originalname) => {
+  return new Promise((resolve, reject) => {
+    const cleanName = originalname
+      .replace(/\.pdf$/i, "")
+      .replace(/\s+/g, "_");
+    const publicId = `college-assistant/notes/${Date.now()}-${cleanName}`;
 
-module.exports = { cloudinary, notesStorage };
+    const stream = cloudinary.uploader.upload_stream(
+      {
+        resource_type: "raw",
+        public_id: publicId,
+        format: "pdf",
+      },
+      (error, result) => {
+        if (error) return reject(error);
+        resolve(result);
+      }
+    );
+
+    stream.end(buffer);
+  });
+};
+
+module.exports = { cloudinary, uploadToCloudinary };

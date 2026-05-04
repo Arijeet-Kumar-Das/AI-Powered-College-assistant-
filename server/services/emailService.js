@@ -9,15 +9,22 @@ const createTransporter = () => {
     if (process.env.EMAIL_USER && process.env.EMAIL_PASS) {
         return nodemailer.createTransport({
             service: "gmail",
+            host: "smtp.gmail.com",
+            port: 587,
+            secure: false, // true for 465, false for 587
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASS, // Use App Password for Gmail
             },
+            // Timeouts to prevent indefinite hanging on cloud platforms (Render, etc.)
+            connectionTimeout: 15000, // 15 seconds to establish connection
+            greetingTimeout: 15000,   // 15 seconds for SMTP greeting
+            socketTimeout: 15000,     // 15 seconds for socket inactivity
         });
     }
 
     // Fallback: Ethereal (for testing - emails won't actually be sent)
-    console.log("⚠️ No email credentials configured. Using test mode.");
+    console.log("No email credentials configured. Using test mode.");
     return null;
 };
 
@@ -78,7 +85,12 @@ const sendLeaveEmail = async (senderInfo, leaveDetails) => {
   `;
 
     try {
-        const info = await transporter.sendMail({
+        // Race between sending email and a 20s timeout to prevent indefinite hanging
+        const emailTimeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Email sending timed out after 20 seconds. Gmail SMTP may be blocked on this server.")), 20000)
+        );
+
+        const sendPromise = transporter.sendMail({
             from: `"BMS College Assistant" <${process.env.EMAIL_USER}>`,
             to: toEmail,
             replyTo: email,
@@ -86,7 +98,9 @@ const sendLeaveEmail = async (senderInfo, leaveDetails) => {
             html: emailHtml,
         });
 
-        console.log("📧 Leave email sent:", info.messageId);
+        const info = await Promise.race([sendPromise, emailTimeout]);
+
+        console.log("Leave email sent:", info.messageId);
 
         return {
             success: true,
@@ -94,11 +108,13 @@ const sendLeaveEmail = async (senderInfo, leaveDetails) => {
             message: `Leave application sent successfully to ${toEmail}`,
         };
     } catch (error) {
-        console.error("📧 Email error:", error);
+        console.error("Email error:", error.message);
         return {
             success: false,
             error: "send_failed",
-            message: error.message,
+            message: error.message.includes("timed out")
+                ? "Email service timed out. The server may be blocking SMTP connections. Please try again later or contact the recipient directly."
+                : error.message,
         };
     }
 };
@@ -138,7 +154,11 @@ const sendProfessionalEmail = async (senderInfo, emailDetails) => {
   `;
 
     try {
-        const info = await transporter.sendMail({
+        const emailTimeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("Email sending timed out after 20 seconds.")), 20000)
+        );
+
+        const sendPromise = transporter.sendMail({
             from: `"${name} via BMS Assistant" <${process.env.EMAIL_USER}>`,
             to: recipient,
             replyTo: email,
@@ -146,7 +166,9 @@ const sendProfessionalEmail = async (senderInfo, emailDetails) => {
             html: emailHtml,
         });
 
-        console.log("📧 Professional email sent:", info.messageId);
+        const info = await Promise.race([sendPromise, emailTimeout]);
+
+        console.log("Professional email sent:", info.messageId);
 
         return {
             success: true,
@@ -154,11 +176,13 @@ const sendProfessionalEmail = async (senderInfo, emailDetails) => {
             message: `Email sent successfully to ${recipient}`,
         };
     } catch (error) {
-        console.error("📧 Email error:", error);
+        console.error("Email error:", error.message);
         return {
             success: false,
             error: "send_failed",
-            message: error.message,
+            message: error.message.includes("timed out")
+                ? "Email service timed out. Please try again later."
+                : error.message,
         };
     }
 };

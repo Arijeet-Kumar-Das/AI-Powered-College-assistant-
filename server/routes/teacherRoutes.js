@@ -5,7 +5,6 @@ const express = require("express");
 const router = express.Router();
 const jwt = require("jsonwebtoken");
 const multer = require("multer");
-const { notesStorage } = require("../config/cloudinary");
 const {
     getTeacherSubjects,
     getStudentsForSubject,
@@ -27,7 +26,7 @@ const {
     getAttendanceByDate,
 } = require("../controllers/attendanceController");
 
-// Configure multer with Cloudinary storage for PDF uploads
+// Configure multer with memory storage — files uploaded to Cloudinary in the controller
 const fileFilter = (req, file, cb) => {
     // Accept only PDFs
     if (file.mimetype === "application/pdf") {
@@ -38,7 +37,7 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({
-    storage: notesStorage,
+    storage: multer.memoryStorage(),
     fileFilter,
     limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });

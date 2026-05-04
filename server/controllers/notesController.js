@@ -5,12 +5,14 @@ const Note = require("../models/Note");
 const Subject = require("../models/Subject");
 const Teacher = require("../models/Teacher");
 const Student = require("../models/Student");
-const { cloudinary } = require("../config/cloudinary");
+const { cloudinary, uploadToCloudinary } = require("../config/cloudinary");
 
 // ==================== TEACHER APIS ====================
 
-// Upload a new note (PDF) — file is already on Cloudinary via multer-storage-cloudinary
+// Upload a new note (PDF) — file comes as buffer from multer memoryStorage
 exports.uploadNote = async (req, res) => {
+    let cloudinaryResult = null;
+
     try {
         if (!req.file) {
             return res.status(400).json({ success: false, message: "No file uploaded" });
@@ -20,21 +22,19 @@ exports.uploadNote = async (req, res) => {
         const teacherId = req.teacher._id;
 
         if (!title || !subjectCode) {
-            // Delete uploaded file from Cloudinary if validation fails
-            if (req.file.filename) {
-                await cloudinary.uploader.destroy(req.file.filename, { resource_type: "raw" });
-            }
             return res.status(400).json({ success: false, message: "Title and subject code are required" });
         }
 
         // Find subject details
         const subject = await Subject.findOne({ subjectCode });
         if (!subject) {
-            if (req.file.filename) {
-                await cloudinary.uploader.destroy(req.file.filename, { resource_type: "raw" });
-            }
             return res.status(404).json({ success: false, message: "Subject not found" });
         }
+
+        // Upload buffer to Cloudinary
+        console.log(`Uploading "${req.file.originalname}" (${req.file.size} bytes) to Cloudinary...`);
+        cloudinaryResult = await uploadToCloudinary(req.file.buffer, req.file.originalname);
+        console.log(`Cloudinary upload success: ${cloudinaryResult.secure_url}`);
 
         // Get teacher info
         const teacher = await Teacher.findById(teacherId);
@@ -43,9 +43,9 @@ exports.uploadNote = async (req, res) => {
             title,
             description: description || "",
             fileName: req.file.originalname,
-            filePath: req.file.path,           // Cloudinary URL
-            cloudinaryId: req.file.filename,   // Cloudinary public_id for deletion
-            fileSize: req.file.size || 0,
+            filePath: cloudinaryResult.secure_url,     // Cloudinary URL
+            cloudinaryId: cloudinaryResult.public_id,  // For deletion
+            fileSize: req.file.size || cloudinaryResult.bytes || 0,
             mimeType: req.file.mimetype || "application/pdf",
             subject: subject._id,
             subjectCode: subject.subjectCode,
@@ -74,14 +74,14 @@ exports.uploadNote = async (req, res) => {
     } catch (error) {
         console.error("Upload error:", error);
         // Clean up Cloudinary file on error
-        if (req.file && req.file.filename) {
+        if (cloudinaryResult && cloudinaryResult.public_id) {
             try {
-                await cloudinary.uploader.destroy(req.file.filename, { resource_type: "raw" });
+                await cloudinary.uploader.destroy(cloudinaryResult.public_id, { resource_type: "raw" });
             } catch (cleanupErr) {
                 console.error("Cloudinary cleanup error:", cleanupErr);
             }
         }
-        res.status(500).json({ success: false, message: "Error uploading note" });
+        res.status(500).json({ success: false, message: "Error uploading note: " + error.message });
     }
 };
 
@@ -132,7 +132,6 @@ exports.deleteNote = async (req, res) => {
                 await cloudinary.uploader.destroy(note.cloudinaryId, { resource_type: "raw" });
             } catch (cloudErr) {
                 console.error("Cloudinary delete error:", cloudErr);
-                // Continue with DB deletion even if Cloudinary fails
             }
         }
 
@@ -157,8 +156,6 @@ exports.getStudentNotes = async (req, res) => {
             return res.status(404).json({ success: false, message: "Student not found" });
         }
 
-        // Get notes matching student's semester and department
-        // OR notes for subjects the student has marks in
         const studentSubjectCodes = student.marks.map((m) => m.subjectCode);
 
         const notes = await Note.find({
@@ -177,7 +174,7 @@ exports.getStudentNotes = async (req, res) => {
                 description: n.description,
                 fileName: n.fileName,
                 fileSize: n.fileSize,
-                fileUrl: n.filePath, // Cloudinary URL — direct download link
+                fileUrl: n.filePath, // Cloudinary URL
                 subjectCode: n.subjectCode,
                 subjectName: n.subjectName,
                 uploadedBy: n.uploadedByName,
@@ -207,7 +204,6 @@ exports.downloadNote = async (req, res) => {
             return res.status(404).json({ success: false, message: "Note not found" });
         }
 
-        // Check access: student must be in same semester/department OR have marks for subject
         const studentSubjectCodes = student.marks.map((m) => m.subjectCode);
         const hasAccess =
             (note.semester === student.semester && note.department === student.department) ||
@@ -220,7 +216,7 @@ exports.downloadNote = async (req, res) => {
         // Increment download count
         await Note.updateOne({ _id: id }, { $inc: { downloads: 1 } });
 
-        // Redirect to Cloudinary URL for download
+        // Redirect to Cloudinary URL
         res.redirect(note.filePath);
     } catch (error) {
         console.error("Download note error:", error);
@@ -238,12 +234,10 @@ exports.getTeacherSubjects = async (req, res) => {
             return res.status(404).json({ success: false, message: "Teacher not found" });
         }
 
-        // Get subjects based on teacher's department and subjects field
         let subjects = [];
         if (teacher.subjects && teacher.subjects.length > 0) {
             subjects = await Subject.find({ subjectCode: { $in: teacher.subjects } });
         } else {
-            // Fallback: get all subjects in teacher's department
             subjects = await Subject.find({ department: teacher.department });
         }
 
